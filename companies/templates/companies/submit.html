@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Usage Detection</title>
+
+    <style>
+
+        body {
+            font-family: Arial;
+            margin: 40px;
+            background: #f4f4f4;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+        }
+
+        input {
+            width: 75%;
+            padding: 12px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .result {
+            margin-top: 30px;
+        }
+
+        .evidence {
+            background: #fafafa;
+            border-left: 5px solid #333;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .score {
+            color: green;
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <h1>AI Usage Detection Engine</h1>
+
+    <form method="POST">
+
+        {% csrf_token %}
+
+        <input
+            type="text"
+            name="url"
+            placeholder="Enter company URL"
+            required
+        >
+
+        <button type="submit">
+            Analyze
+        </button>
+
+    </form>
+
+    {% if task_id %}
+
+        <hr>
+
+        <h3>Analysis Started</h3>
+
+        <p>
+            Task ID:
+            {{ task_id }}
+        </p>
+
+        <p>
+            Analysis is running in background...
+        </p>
+
+    {% endif %}
+    
+    <div id="live-result"></div>
+
+    {% if result %}
+
+        <div class="result">
+
+            <h2>Analysis Result</h2>
+
+            <p>
+                <strong>Company:</strong>
+                {{ result.url }}
+            </p>
+
+            <p>
+                <strong>Uses AI:</strong>
+                {{ result.verdict }}
+            </p>
+
+            <p>
+                <strong>Confidence:</strong>
+                {{ result.confidence }}
+            </p>
+
+            <h3>Evidence</h3>
+
+            {% for e in result.evidence %}
+
+                <div class="evidence">
+
+                    <p>
+                        <strong>Type:</strong>
+                        {{ e.category }}
+                    </p>
+
+                    <p>
+                        <strong>URL:</strong>
+                        {{ e.url }}
+                    </p>
+
+                    <p class="score">
+                        Similarity:
+                        {{ e.similarity }}
+                    </p>
+
+                    <p>
+                        {{ e.text }}
+                    </p>
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% if task_id %}
+
+<script>
+
+    const taskId = "{{ task_id }}";
+
+    async function checkStatus() {
+
+        const response = await fetch(`/task/${taskId}/`);
+
+        const data = await response.json();
+
+        if (data.status === "completed") {
+
+            let html = `
+                <hr>
+                <h2>Analysis Complete</h2>
+
+                <p><strong>Company:</strong> ${data.result.url}</p>
+                <p><strong>Uses AI:</strong> ${data.result.verdict}</p>
+                <p><strong>Confidence:</strong> ${data.result.confidence}</p>
+                <p><strong>Role:</strong> ${data.result.role}</p>
+
+                <h3>Evidence</h3>
+            `;
+
+            data.result.evidence.forEach(e => {
+
+                html += `
+                    <div class="evidence">
+
+                        <p>
+                            <strong>Type:</strong>
+                            ${e.category}
+                        </p>
+
+                        <p>
+                            <strong>URL:</strong>
+                            ${e.url}
+                        </p>
+
+                        <p>
+                            <strong>Similarity:</strong>
+                            ${e.similarity}
+                        </p>
+
+                        <p>
+                            ${e.text}
+                        </p>
+
+                    </div>
+                `;
+            });
+
+            document.getElementById(
+                "live-result"
+            ).innerHTML = html;
+
+        } else {
+
+            setTimeout(checkStatus, 2000);
+        }
+    }
+
+    checkStatus();
+
+</script>
+
+{% endif %}
+
+</body>
+</html>

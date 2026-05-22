@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+
+# Virtual Environment
+venv/
+.env
+
+# Django
+db.sqlite3
+media/
+
+# VS Code
+.vscode/
+
+# Mac/Linux
+.DS_Store
+
+# Logs
+*.log
+
+# Celery
+celerybeat-schedule
+
+# Redis dump
+dump.rdb
+
+# Playwright
+playwright/.cache/
+
+# PyTorch / Transformers cache
+.cache/
