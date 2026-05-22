@@ -9,7 +9,7 @@ CATEGORY_WEIGHTS = {
 
     "product_ai": 8,
 
-    "technical_ai": 10,
+    "technical_ai": 14,
 
     "research_ai": 7,
 

@@ -36,6 +36,17 @@ AI_TECH_PATTERNS = {
         "ai-sdk",
         "@ai-sdk",
         "vercel ai"
+    ],
+
+    "inference_api": [
+        "/chat/completions",
+        "/completions",
+        "/embeddings",
+        "/inference",
+        "/ai/",
+        "/copilot",
+        "/assistant",
+        "/agents"
     ]
 }
 

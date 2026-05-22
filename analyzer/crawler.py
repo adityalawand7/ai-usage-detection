@@ -1,5 +1,5 @@
 from playwright.sync_api import sync_playwright
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 
 MAX_PAGES = 8
@@ -45,15 +45,14 @@ def discover_links(page, base_url):
 
         filtered.append(link)
 
-    # unique links
     return list(dict.fromkeys(filtered))[:MAX_PAGES]
 
 
 # --------------------------------
-# EXTRACT JS
+# EXTRACT SCRIPTS
 # --------------------------------
 
-def extract_scripts(page, base_url):
+def extract_scripts(page):
 
     scripts = page.eval_on_selector_all(
         "script",
@@ -65,19 +64,17 @@ def extract_scripts(page, base_url):
         """
     )
 
-    js_content = []
+    collected = []
 
     for script in scripts:
 
-        # inline JS
-        if script["content"]:
-            js_content.append(script["content"])
-
-        # external JS URL
         if script["src"]:
-            js_content.append(script["src"])
+            collected.append(script["src"])
 
-    return js_content
+        if script["content"]:
+            collected.append(script["content"])
+
+    return collected
 
 
 # --------------------------------
@@ -94,7 +91,36 @@ def fetch_pages(base_url):
 
         page = browser.new_page()
 
-        # block heavy assets
+        # --------------------------------
+        # COLLECT NETWORK REQUESTS
+        # --------------------------------
+
+        network_requests = []
+
+        def capture_request(request):
+
+            url = request.url.lower()
+
+            resource_type = request.resource_type
+
+            # focus on APIs / XHR / fetch
+            if resource_type in [
+                "xhr",
+                "fetch",
+                "websocket"
+            ]:
+
+                network_requests.append(url)
+
+        page.on(
+            "request",
+            capture_request
+        )
+
+        # --------------------------------
+        # BLOCK HEAVY ASSETS
+        # --------------------------------
+
         page.route(
             "**/*",
             lambda route: route.abort()
@@ -106,7 +132,10 @@ def fetch_pages(base_url):
             else route.continue_()
         )
 
-        # open homepage
+        # --------------------------------
+        # OPEN BASE URL
+        # --------------------------------
+
         page.goto(base_url, timeout=30000)
 
         links = discover_links(page, base_url)
@@ -114,26 +143,35 @@ def fetch_pages(base_url):
         if base_url not in links:
             links.insert(0, base_url)
 
-        # crawl discovered pages
+        # --------------------------------
+        # CRAWL PAGES
+        # --------------------------------
+
         for link in links:
 
             try:
 
                 print(f"[Crawler] Visiting {link}")
 
+                network_requests.clear()
+
                 page.goto(link, timeout=30000)
+
+                page.wait_for_timeout(3000)
 
                 html = page.content()
 
-                scripts = extract_scripts(
-                    page,
-                    base_url
-                )
+                scripts = extract_scripts(page)
 
                 pages.append({
+
                     "url": link,
+
                     "content": html,
-                    "scripts": scripts
+
+                    "scripts": scripts,
+
+                    "network": list(set(network_requests))
                 })
 
             except Exception as e:
