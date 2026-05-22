@@ -1,100 +1,144 @@
 from playwright.sync_api import sync_playwright
 from urllib.parse import urljoin, urlparse
-from bs4 import BeautifulSoup
+
 
 MAX_PAGES = 8
 
-AI_KEYWORDS = [
-    "ai",
-    "artificial",
-    "intelligence",
-    "machine-learning",
-    "ml",
-    "copilot",
-    "automation",
-    "platform",
-    "developer",
-    "docs",
-    "api",
-    "product",
-    "technology",
-]
+
+# --------------------------------
+# DISCOVER INTERNAL LINKS
+# --------------------------------
+
+def discover_links(page, base_url):
+
+    anchors = page.eval_on_selector_all(
+        "a",
+        "elements => elements.map(e => e.href)"
+    )
+
+    base_domain = urlparse(base_url).netloc
+
+    filtered = []
+
+    for link in anchors:
+
+        if not link:
+            continue
+
+        parsed = urlparse(link)
+
+        if parsed.netloc != base_domain:
+            continue
+
+        # skip junk files
+        if any(
+            link.endswith(ext)
+            for ext in [
+                ".jpg",
+                ".png",
+                ".pdf",
+                ".zip",
+                ".svg"
+            ]
+        ):
+            continue
+
+        filtered.append(link)
+
+    # unique links
+    return list(dict.fromkeys(filtered))[:MAX_PAGES]
 
 
-def is_internal(base, link):
-    return urlparse(link).netloc == urlparse(base).netloc
+# --------------------------------
+# EXTRACT JS
+# --------------------------------
+
+def extract_scripts(page, base_url):
+
+    scripts = page.eval_on_selector_all(
+        "script",
+        """
+        elements => elements.map(e => ({
+            src: e.src,
+            content: e.innerText
+        }))
+        """
+    )
+
+    js_content = []
+
+    for script in scripts:
+
+        # inline JS
+        if script["content"]:
+            js_content.append(script["content"])
+
+        # external JS URL
+        if script["src"]:
+            js_content.append(script["src"])
+
+    return js_content
 
 
-def score_link(link):
-    link_lower = link.lower()
-    return sum(1 for k in AI_KEYWORDS if k in link_lower)
-
+# --------------------------------
+# MAIN CRAWLER
+# --------------------------------
 
 def fetch_pages(base_url):
 
-    visited = set()
     pages = []
 
     with sync_playwright() as p:
+
         browser = p.chromium.launch(headless=True)
+
         page = browser.new_page()
 
+        # block heavy assets
         page.route(
             "**/*",
             lambda route: route.abort()
-            if route.request.resource_type in ["image", "font", "media"]
+            if route.request.resource_type in [
+                "image",
+                "font",
+                "media"
+            ]
             else route.continue_()
         )
 
-        print(f"[Crawler] Visiting {base_url}")
+        # open homepage
         page.goto(base_url, timeout=30000)
 
-        html = page.content()
+        links = discover_links(page, base_url)
 
-        pages.append({
-            "url": base_url,
-            "content": html
-        })
+        if base_url not in links:
+            links.insert(0, base_url)
 
-        visited.add(base_url)
-
-        # -------- Extract Links --------
-        soup = BeautifulSoup(html, "html.parser")
-
-        links = set()
-
-        for a in soup.find_all("a", href=True):
-            link = urljoin(base_url, a["href"])
-
-            if is_internal(base_url, link):
-                links.add(link.split("#")[0])
-
-        # -------- Score Links --------
-        ranked_links = sorted(
-            links,
-            key=score_link,
-            reverse=True
-        )
-
-        # -------- Crawl Top Links --------
-        for link in ranked_links[:MAX_PAGES]:
-
-            if link in visited:
-                continue
+        # crawl discovered pages
+        for link in links:
 
             try:
+
                 print(f"[Crawler] Visiting {link}")
-                page.goto(link, timeout=20000)
+
+                page.goto(link, timeout=30000)
+
+                html = page.content()
+
+                scripts = extract_scripts(
+                    page,
+                    base_url
+                )
 
                 pages.append({
                     "url": link,
-                    "content": page.content()
+                    "content": html,
+                    "scripts": scripts
                 })
 
-                visited.add(link)
+            except Exception as e:
 
-            except:
-                pass
+                print(f"[Crawler] Failed {link}: {e}")
 
         browser.close()
 

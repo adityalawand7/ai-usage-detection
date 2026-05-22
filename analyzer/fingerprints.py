@@ -1,24 +1,61 @@
-AI_FINGERPRINTS = {
-    "openai": "OpenAI",
-    "gpt-4": "OpenAI",
-    "anthropic": "Anthropic",
-    "claude": "Anthropic",
-    "huggingface": "Hugging Face",
-    "replicate.com": "Replicate",
-    "api.openai.com": "OpenAI API",
-    "langchain": "LangChain",
-    "llama": "Meta LLaMA",
+AI_TECH_PATTERNS = {
+
+    "openai": [
+        "openai",
+        "api.openai.com",
+        "chatgpt",
+        "gpt-4",
+        "gpt-3.5"
+    ],
+
+    "anthropic": [
+        "anthropic",
+        "claude"
+    ],
+
+    "google_ai": [
+        "gemini",
+        "vertexai",
+        "generativeai"
+    ],
+
+    "huggingface": [
+        "huggingface",
+        "transformers"
+    ],
+
+    "langchain": [
+        "langchain"
+    ],
+
+    "llamaindex": [
+        "llamaindex"
+    ],
+
+    "vercel_ai_sdk": [
+        "ai-sdk",
+        "@ai-sdk",
+        "vercel ai"
+    ]
 }
 
 
+# --------------------------------
+# DETECT AI FINGERPRINTS
+# --------------------------------
+
 def detect_fingerprints(content):
 
-    detected = []
+    findings = []
 
-    content_lower = content.lower()
+    content = content.lower()
 
-    for key, provider in AI_FINGERPRINTS.items():
-        if key in content_lower:
-            detected.append(provider)
+    for tech, patterns in AI_TECH_PATTERNS.items():
 
-    return list(set(detected))
+        if any(
+            pattern.lower() in content
+            for pattern in patterns
+        ):
+            findings.append(tech)
+
+    return findings

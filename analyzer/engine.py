@@ -61,6 +61,7 @@ def analyze_company(url):
     for page in pages:
 
         html = page["content"]
+        scripts = page.get("scripts", [])
         page_url = page["url"]
 
         clean_text = extract_visible_text(html)
@@ -92,7 +93,11 @@ def analyze_company(url):
             )
 
         # -------- FINGERPRINT ANALYSIS --------
-        techs = detect_fingerprints(html)
+        combined_content = html + " " + " ".join(scripts)
+
+        techs = detect_fingerprints(
+            combined_content
+        )
 
         for tech in techs:
             evidence.append(
