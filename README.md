@@ -127,106 +127,109 @@ Generates executive-style summaries explaining:
 
 # System Architecture
 
-```text
-                ┌─────────────────────┐
-                │  User Submits URL   │
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │ Django Frontend/API │
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │ Celery Task Queue   │
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │ Playwright Crawler  │
-                └──────────┬──────────┘
-                           │
-            ┌──────────────┼──────────────┐
-            ▼              ▼              ▼
-   ┌────────────────┐ ┌──────────────┐ ┌─────────────────┐
-   │ Semantic NLP   │ │ Fingerprints │ │ Behavioral Scan │
-   └────────────────┘ └──────────────┘ └─────────────────┘
-            │              │              │
-            └──────────────┼──────────────┘
-                           ▼
-                ┌─────────────────────┐
-                │ Reasoning Engine    │
-                └──────────┬──────────┘
-                           ▼
-                ┌─────────────────────┐
-                │ Classification +    │
-                │ Evidence Summary    │
-                └──────────┬──────────┘
-                           ▼
-                ┌─────────────────────┐
-                │ Frontend Dashboard  │
-                └─────────────────────┘
+```mermaid
+flowchart TD
+
+    A[User Submits Company URL]
+    --> B[Django Frontend]
+
+    B --> C[Celery Task Queue]
+
+    C --> D[Redis Broker]
+
+    C --> E[AI Analysis Worker]
+
+    E --> F[Playwright Dynamic Crawler]
+
+    F --> G[Rendered HTML Extraction]
+    F --> H[Script Collection]
+    F --> I[Network Request Monitoring]
+    F --> J[Internal Link Discovery]
+
+    G --> K[Semantic Intelligence Engine]
+    H --> L[Technical Fingerprinting Engine]
+    I --> M[Behavioral AI Detection]
+
+    K --> N[Evidence Graph]
+    L --> N
+    M --> N
+
+    N --> O[Reasoning & Scoring Engine]
+
+    O --> P[AI Role Classification]
+    O --> Q[Confidence Scoring]
+    O --> R[False Positive Reduction]
+
+    P --> S[Executive AI Summary]
+
+    Q --> T[Final Intelligence Report]
+    R --> T
+    S --> T
+
+    T --> U[Frontend Dashboard Results]
 ```
 
 ---
 
-# Detection Pipeline
+# Detection Intelligence Pipeline
 
-## Step 1 — Dynamic Crawling
+```mermaid
+flowchart LR
 
-The crawler visits internal company pages using Playwright and collects:
+    A[Raw Website Data]
+    --> B[Content Cleaning]
 
-* Rendered HTML
-* Scripts
-* Network activity
-* Internal links
+    B --> C[Text Chunking]
 
+    C --> D[Sentence Transformer Embeddings]
+
+    D --> E[Semantic Similarity Analysis]
+
+    E --> F[Evidence Classification]
+
+    F --> G[Weighted Reasoning Engine]
+
+    G --> H[AI Adoption Verdict]
+
+    H --> I[Company Role Classification]
+
+    I --> J[Confidence Generation]
+```
 ---
 
-## Step 2 — Semantic Analysis
+# Async Processing Flow
 
-Website content is chunked and analyzed using sentence-transformer embeddings.
+```mermaid
+sequenceDiagram
 
-The engine compares semantic meaning instead of relying only on keywords.
+    participant U as User
+    participant D as Django
+    participant C as Celery
+    participant R as Redis
+    participant W as Worker
+    participant A as Analyzer
 
----
+    U->>D: Submit Company URL
 
-## Step 3 — Technical Fingerprinting
+    D->>C: Create Background Task
 
-The engine scans:
+    C->>R: Store Task
 
-* Scripts
-* API calls
-* SDK references
-* AI providers
+    W->>R: Fetch Task
 
-for known AI technologies.
+    W->>A: Run AI Detection Engine
 
----
+    A-->>W: Return Analysis Result
 
-## Step 4 — Behavioral Detection
+    W-->>R: Store Result
 
-Runtime browser activity is inspected to identify:
+    U->>D: Poll Task Status
 
-* AI API calls
-* Model interactions
-* Streaming endpoints
-* AI-driven workflows
+    D->>R: Fetch Result
 
----
+    D-->>U: Return Intelligence Report
+```
 
-## Step 5 — Organizational Reasoning
-
-The reasoning engine:
-
-* Scores evidence
-* Removes weak signals
-* Reduces false positives
-* Determines organizational AI role
-* Generates confidence levels
-
----
 
 # Example Output
 
