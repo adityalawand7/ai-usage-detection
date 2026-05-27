@@ -102,7 +102,7 @@ def infer_company_role(evidence_list):
 def company_reasoning(evidence_list):
 
     if not evidence_list:
-        return False, "NO EVIDENCE"
+        return False, "NO EVIDENCE", "unknown"
 
     total_score = 0
 

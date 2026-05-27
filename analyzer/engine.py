@@ -2,7 +2,8 @@ from .crawler import fetch_pages
 from .semantic import analyze_chunks
 from .fingerprints import detect_fingerprints
 from .reasoning import company_reasoning
-from .evidence import Evidence
+from .evidence import Evidence, EvidenceGraph
+from .summary import generate_summary
 
 from bs4 import BeautifulSoup
 
@@ -56,7 +57,7 @@ def analyze_company(url):
 
     pages = fetch_pages(url)
 
-    evidence = []
+    evidence_graph = EvidenceGraph()
 
     for page in pages:
 
@@ -77,7 +78,7 @@ def analyze_company(url):
 
         for result in semantic_results:
 
-            evidence.append(
+            evidence_graph.add(
                 Evidence(
                     url=page_url,
 
@@ -107,7 +108,7 @@ def analyze_company(url):
         )
 
         for tech in techs:
-            evidence.append(
+            evidence_graph.add(
                 Evidence(
                     url=page_url,
                     page_type="technical",
@@ -119,7 +120,26 @@ def analyze_company(url):
             )
 
     verdict, confidence, role = company_reasoning(
-        evidence
+        evidence_graph.all()
+    )
+    
+    summary = generate_summary(
+        role,
+        confidence,
+        {
+
+            "semantic":
+                len(evidence_graph.semantic),
+
+            "technical":
+                len(evidence_graph.technical),
+
+            "behavioral":
+                len(evidence_graph.behavioral),
+
+            "organizational":
+                len(evidence_graph.organizational)
+        }
     )
 
     return {
@@ -127,5 +147,20 @@ def analyze_company(url):
         "verdict": verdict,
         "confidence": confidence,
         "role": role,
-        "evidence": evidence
+        "summary": summary,
+        "evidence": evidence_graph.all(),
+        "evidence_summary": {
+
+            "semantic":
+                len(evidence_graph.semantic),
+
+            "technical":
+                len(evidence_graph.technical),
+
+            "behavioral":
+                len(evidence_graph.behavioral),
+
+            "organizational":
+                len(evidence_graph.organizational)
+        }
     }

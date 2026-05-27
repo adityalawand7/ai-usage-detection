@@ -43,6 +43,33 @@ def discover_links(page, base_url):
         ):
             continue
 
+        # --------------------------------
+        # BAD URL FILTERS
+        # --------------------------------
+
+        BAD_PATTERNS = [
+
+            "search?",
+            "setprefs",
+            "accounts.google",
+            "maps.google",
+            "policies.google",
+            "/preferences",
+            "/advanced_search",
+            "support.google",
+            "privacy",
+            "terms",
+            "signin",
+            "login",
+        ]
+
+        # skip noisy pages
+        if any(
+            bad in link.lower()
+            for bad in BAD_PATTERNS
+        ):
+            continue
+
         filtered.append(link)
 
     return list(dict.fromkeys(filtered))[:MAX_PAGES]
