@@ -1,141 +1,64 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AI Usage Detection</title>
+    <title>
+        AI Usage Detection
+    </title>
 
-    <style>
-
-        body {
-            font-family: Arial;
-            margin: 40px;
-            background: #f4f4f4;
-            color: #222;
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: auto;
-            background: white;
-            padding: 35px;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-        }
-
-        h1 {
-            margin-bottom: 30px;
-        }
-
-        input {
-            width: 75%;
-            padding: 14px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-        }
-
-        button {
-            padding: 14px 22px;
-            font-size: 16px;
-            cursor: pointer;
-            border: none;
-            background: #111;
-            color: white;
-            border-radius: 8px;
-        }
-
-        button:hover {
-            opacity: 0.92;
-        }
-
-        .status-box {
-            margin-top: 25px;
-            padding: 20px;
-            background: #f8f8f8;
-            border-left: 5px solid #111;
-            border-radius: 8px;
-        }
-
-        .result {
-            margin-top: 35px;
-        }
-
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 18px;
-            margin-top: 25px;
-            margin-bottom: 30px;
-        }
-
-        .summary-card {
-            background: #fafafa;
-            padding: 20px;
-            border-radius: 10px;
-            border: 1px solid #eee;
-        }
-
-        .summary-card h4 {
-            margin: 0 0 10px 0;
-        }
-
-        .summary-card p {
-            margin: 0;
-            color: #555;
-        }
-
-        .evidence {
-            background: #fafafa;
-            border-left: 5px solid #222;
-            padding: 18px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 30px;
-            background: #111;
-            color: white;
-            font-size: 14px;
-            margin-left: 8px;
-        }
-
-        .score {
-            color: green;
-            font-weight: bold;
-        }
-
-        .section-title {
-            margin-top: 40px;
-            margin-bottom: 20px;
-        }
-
-    </style>
+    <link
+        rel="stylesheet"
+        href="{% static 'css/styles.css' %}"
+    >
 </head>
 
 <body>
 
 <div class="container">
 
-    <h1>AI Usage Detection Engine</h1>
+    <!-- HERO -->
 
-    <form method="POST">
+    <div class="hero">
 
-        {% csrf_token %}
+        <h1>
+            AI Usage Detection Engine
+        </h1>
 
-        <input
-            type="text"
-            name="url"
-            placeholder="Enter company URL"
-            required
+        <p>
+            Analyze organizations for AI adoption, technical AI integrations,
+            semantic AI signals, and operational AI indicators using automated
+            intelligence pipelines.
+        </p>
+
+    </div>
+
+    <!-- SEARCH -->
+
+    <div class="search-box">
+
+        <form
+            method="POST"
+            class="search-form"
         >
 
-        <button type="submit">
-            Analyze
-        </button>
+            {% csrf_token %}
 
-    </form>
+            <input
+                type="text"
+                name="url"
+                placeholder="Enter company URL"
+                required
+            >
+
+            <button type="submit">
+                Analyze Company
+            </button>
+
+        </form>
+
+    </div>
+
+    <!-- LIVE STATUS -->
 
     {% if task_id %}
 
@@ -144,24 +67,48 @@
         id="status-box"
     >
 
-        <h3>Analysis Started</h3>
+        <h3>
+            Intelligence Pipeline Running
+        </h3>
 
         <p>
             Task ID:
             {{ task_id }}
         </p>
 
-        <p id="loading-text">
-            Analysis is running in background...
+        <!-- PIPELINE -->
+
+        <div class="pipeline-step pipeline-active">
+            <span id="progress-step">
+                Initializing analysis...
+            </span>
+        </div>
+
+        <!-- PROGRESS -->
+
+        <div class="progress-track">
+
+            <div
+                class="progress-bar"
+                id="progress-bar"
+            ></div>
+
+        </div>
+
+        <p id="progress-percent">
+            0%
         </p>
 
     </div>
 
     {% endif %}
 
+    <!-- RESULTS -->
+
     <div id="live-result"></div>
 
 </div>
+
 
 {% if task_id %}
 
@@ -169,186 +116,9 @@
 
     const taskId = "{{ task_id }}";
 
-    const roleLabels = {
-
-        ai_native:
-            "AI-Native Company",
-
-        ai_product:
-            "AI Product Company",
-
-        ai_enabled:
-            "AI-Enabled Organization",
-
-        ai_governance:
-            "AI Governance & Advisory",
-
-        ai_research:
-            "AI Research Organization",
-
-        ai_consumer:
-            "AI Consumer",
-
-        ai_marketing_only:
-            "AI Marketing Presence",
-
-        unknown:
-            "Unknown"
-    };
-
-    async function checkStatus() {
-
-        const response = await fetch(
-            `/task/${taskId}/`
-        );
-
-        const data = await response.json();
-
-        if (data.status === "completed") {
-
-            // remove loading state
-            document.getElementById(
-                "status-box"
-            ).style.display = "none";
-
-            let html = `
-
-                <div class="result">
-
-                    <hr>
-
-                    <h2>
-                        Analysis Complete
-                        <span class="badge">
-                            ${data.result.confidence}
-                        </span>
-                    </h2>
-
-                    <p>
-                        <strong>Company:</strong>
-                        ${data.result.url}
-                    </p>
-
-                    <p>
-                        <strong>Uses AI:</strong>
-                        ${data.result.verdict}
-                    </p>
-
-                    <p>
-                        <strong>Classification:</strong>
-                        ${roleLabels[data.result.role]}
-                    </p>
-
-                    <div class="summary-card">
-
-                        <h4>
-                            AI Intelligence Summary
-                        </h4>
-
-                        <p>
-                            ${data.result.summary}
-                        </p>
-
-                    </div>
-
-                    <div class="summary-grid">
-
-                        <div class="summary-card">
-                            <h4>
-                                Website AI Signals
-                            </h4>
-                            <p>
-                                ${data.result.evidence_summary.semantic}
-                                AI-related product or service indicators detected across website content.
-                            </p>
-                        </div>
-
-                        <div class="summary-card">
-                            <h4>
-                                Technical AI Integrations
-                            </h4>
-                            <p>
-                                ${data.result.evidence_summary.technical}
-                                AI SDKs, APIs, scripts, or model integrations identified.
-                            </p>
-                        </div>
-
-                        <div class="summary-card">
-                            <h4>
-                                Live AI Activity
-                            </h4>
-                            <p>
-                                ${data.result.evidence_summary.behavioral}
-                                runtime AI-related network behaviors observed during analysis.
-                            </p>
-                        </div>
-
-                        <div class="summary-card">
-                            <h4>
-                                Organizational Indicators
-                            </h4>
-                            <p>
-                                ${data.result.evidence_summary.organizational}
-                                strategic or operational AI positioning indicators detected.
-                            </p>
-                        </div>
-
-                    </div>
-
-                    <h3 class="section-title">
-                        Evidence Collected
-                    </h3>
-            `;
-
-            data.result.evidence.forEach(e => {
-
-                html += `
-
-                    <div class="evidence">
-
-                        <p>
-                            <strong>Evidence Type:</strong>
-                            ${e.category}
-                        </p>
-
-                        <p>
-                            <strong>Source URL:</strong>
-                            ${e.url}
-                        </p>
-
-                        <p class="score">
-                            Relevance Score:
-                            ${Number(e.similarity).toFixed(2)}
-                        </p>
-
-                        <p>
-                            ${e.text}
-                        </p>
-
-                    </div>
-                `;
-            });
-
-            html += `</div>`;
-
-            document.getElementById(
-                "live-result"
-            ).innerHTML = html;
-
-        }
-
-        else {
-
-            setTimeout(
-                checkStatus,
-                2000
-            );
-        }
-    }
-
-    checkStatus();
-
 </script>
+
+<script src="{% static 'js/app.js' %}"></script>
 
 {% endif %}
 

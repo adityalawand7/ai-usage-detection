@@ -3,10 +3,29 @@ from celery import shared_task
 from analyzer.engine import analyze_company
 
 
-@shared_task
-def run_analysis(url):
+@shared_task(bind=True)
+def run_analysis(self, url):
 
-    result = analyze_company(url)
+    # --------------------------------
+    # INITIAL TASK STATE
+    # --------------------------------
+
+    self.update_state(
+        state="PROGRESS",
+        meta={
+            "step": "Initializing analysis",
+            "progress": 5
+        }
+    )
+
+    result = analyze_company(
+        url,
+        task=self
+    )
+
+    # --------------------------------
+    # SERIALIZE EVIDENCE
+    # --------------------------------
 
     serialized = []
 

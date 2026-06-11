@@ -51,11 +51,29 @@ def chunk_text(text, size=400):
 # --------------------------------
 # MAIN ENGINE
 # --------------------------------
-def analyze_company(url):
+def analyze_company(url, task=None):
 
     print(f"Analyzing {url}")
 
+    if task:
+        task.update_state(
+            state="PROGRESS",
+            meta={
+                "step": "Crawling website",
+                "progress": 15
+            }
+        )
+
     pages = fetch_pages(url)
+
+    if task:
+        task.update_state(
+            state="PROGRESS",
+            meta={
+                "step": "Extracting website content",
+                "progress": 35
+            }
+        )
 
     evidence_graph = EvidenceGraph()
 
@@ -72,6 +90,15 @@ def analyze_company(url):
 
         if not chunks:
             continue
+
+        if task:
+            task.update_state(
+                state="PROGRESS",
+                meta={
+                    "step": "Running semantic AI analysis",
+                    "progress": 55
+                }
+            )
 
         # -------- SEMANTIC ANALYSIS --------
         semantic_results = analyze_chunks(chunks)
@@ -92,6 +119,15 @@ def analyze_company(url):
 
                     category=result["category"]
                 )
+            )
+
+        if task:
+            task.update_state(
+                state="PROGRESS",
+                meta={
+                    "step": "Detecting AI technologies",
+                    "progress": 75
+                }
             )
 
         # -------- FINGERPRINT ANALYSIS --------
@@ -118,6 +154,15 @@ def analyze_company(url):
                     category="technical_ai"
                 )
             )
+    
+    if task:
+        task.update_state(
+            state="PROGRESS",
+            meta={
+                "step": "Generating intelligence report",
+                "progress": 90
+            }
+        )
 
     verdict, confidence, role = company_reasoning(
         evidence_graph.all()
@@ -141,6 +186,15 @@ def analyze_company(url):
                 len(evidence_graph.organizational)
         }
     )
+
+    if task:
+        task.update_state(
+            state="PROGRESS",
+            meta={
+                "step": "Finalizing results",
+                "progress": 100
+            }
+        )
 
     return {
         "url": url,

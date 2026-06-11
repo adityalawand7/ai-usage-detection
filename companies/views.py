@@ -34,6 +34,10 @@ def task_status(request, task_id):
 
     task = AsyncResult(task_id)
 
+    # --------------------------------
+    # TASK COMPLETED
+    # --------------------------------
+
     if task.ready():
 
         return JsonResponse({
@@ -41,6 +45,22 @@ def task_status(request, task_id):
             "result": task.result
         })
 
+    # --------------------------------
+    # TASK IN PROGRESS
+    # --------------------------------
+
+    if task.state == "PROGRESS":
+
+        return JsonResponse({
+            "status": "running",
+            "step": task.info.get("step"),
+            "progress": task.info.get("progress")
+        })
+
+    # --------------------------------
+    # TASK PENDING
+    # --------------------------------
+
     return JsonResponse({
-        "status": "running"
+        "status": "pending"
     })
