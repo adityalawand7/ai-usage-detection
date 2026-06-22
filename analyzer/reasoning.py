@@ -20,6 +20,8 @@ CATEGORY_WEIGHTS = {
     "consulting_ai": 2,
 
     "marketing_ai": 1,
+
+    "career_ai": 10
 }
 
 # --------------------------------
@@ -48,17 +50,24 @@ def infer_company_role(evidence_list):
     if category_counter["product_ai"] >= 3:
         return "ai_product"
 
-    if (
-        category_counter["governance_ai"] >= 3
-        or category_counter["consulting_ai"] >= 3
-    ):
-        return "ai_governance"
 
+    # Active AI hiring or internal tools usage signals an AI-Enabled firm
     if (
-        category_counter["internal_ai"] >= 2
-        and category_counter["marketing_ai"] <= 3
+        category_counter["career_ai"] >= 2
+        or category_counter["internal_ai"] >= 2
     ):
         return "ai_enabled"
+
+
+    if (
+        (
+            category_counter["governance_ai"] >= 3
+            or category_counter["consulting_ai"] >= 3
+        )
+        and category_counter["product_ai"] <= 1
+        and category_counter["technical_ai"] == 0
+    ):
+        return "ai_governance"
 
 
     # governance / advisory heavy
@@ -102,17 +111,32 @@ def infer_company_role(evidence_list):
 def company_reasoning(evidence_list):
 
     if not evidence_list:
-        return False, "NO EVIDENCE", "unknown"
+        return False, "NO EVIDENCE", "unknown", 0, {}
 
     total_score = 0
 
     category_counter = Counter()
+
+    category_scores = Counter()
 
     unique_texts = set()
 
     strong_evidence = 0
 
     technical_hits = 0
+
+    score_breakdown = {
+
+        "base_score": 0,
+
+        "diversity_bonus": 0,
+
+        "technical_bonus": 0,
+
+        "strong_evidence_bonus": 0,
+
+        "penalties": 0
+    }
 
 
     # --------------------------------
@@ -144,7 +168,8 @@ def company_reasoning(evidence_list):
         elif e.strength == "medium":
             base *= 1.2
 
-        total_score += base
+        category_scores[e.category] += base
+
 
         # technical evidence tracking
         if e.category == "technical_ai":
@@ -152,28 +177,106 @@ def company_reasoning(evidence_list):
 
 
     # --------------------------------
+    # CATEGORY CAPS
+    # --------------------------------
+
+    category_scores["technical_ai"] = min(
+        category_scores["technical_ai"],
+        40
+    )
+
+    category_scores["product_ai"] = min(
+        category_scores["product_ai"],
+        40
+    )
+
+    category_scores["research_ai"] = min(
+        category_scores["research_ai"],
+        20
+    )
+
+    category_scores["career_ai"] = min(
+        category_scores["career_ai"],
+        25
+    )
+
+    category_scores["internal_ai"] = min(
+        category_scores["internal_ai"],
+        15
+    )
+
+    category_scores["governance_ai"] = min(
+        category_scores["governance_ai"],
+        15
+    )
+
+    category_scores["consulting_ai"] = min(
+        category_scores["consulting_ai"],
+        15
+    )
+
+    category_scores["marketing_ai"] = min(
+        category_scores["marketing_ai"],
+        10
+    )
+
+    total_score = sum(
+        category_scores.values()
+    )
+
+    score_breakdown["base_score"] = round(
+        total_score,
+        1
+    )
+
+    score_breakdown["category_scores"] = dict(
+        category_scores
+    )
+
+    # --------------------------------
     # CONFIDENCE BOOSTS
     # --------------------------------
 
     # multiple evidence types
-    if len(category_counter) >= 3:
+    if len(category_counter) >= 4:
+
+        total_score += 12
+
+        score_breakdown["diversity_bonus"] += 12
+
+    elif len(category_counter) >= 3:
+
         total_score += 8
 
+        score_breakdown["diversity_bonus"] += 8
+
     elif len(category_counter) >= 2:
+
         total_score += 4
+
+        score_breakdown["diversity_bonus"] += 4
 
 
     # technical confirmation
     if technical_hits >= 2:
+
         total_score += 10
 
+        score_breakdown["technical_bonus"] += 10
+
     elif technical_hits == 1:
+
         total_score += 5
+
+        score_breakdown["technical_bonus"] += 5
 
 
     # many strong evidences
     if strong_evidence >= 4:
+
         total_score += 6
+
+        score_breakdown["strong_evidence_bonus"] += 6
 
 
     # --------------------------------
@@ -182,15 +285,42 @@ def company_reasoning(evidence_list):
 
     # only vague marketing fluff
     if (
-        category_counter.get("marketing_ai", 0) >= 4
-        and len(category_counter) == 1
-    ):
-        total_score -= 10
 
+        category_counter.get("marketing_ai", 0) >= 4
+
+        and technical_hits == 0
+
+    ):
+
+        total_score -= 15
+
+        score_breakdown["penalties"] -= 15
+
+    governance_hits = (
+
+        category_counter["governance_ai"]
+
+        + category_counter["consulting_ai"]
+    )
+
+    if governance_hits >= 5 and technical_hits == 0:
+
+        total_score -= 12
+
+        score_breakdown["penalties"] -= 12
+
+    elif governance_hits >= 3 and technical_hits == 0:
+
+        total_score -= 6
+
+        score_breakdown["penalties"] -= 6
 
     # too little diversity
     if len(category_counter) == 1:
+
         total_score -= 3
+
+        score_breakdown["penalties"] -= 3
 
     role = infer_company_role(evidence_list)
 
@@ -198,13 +328,40 @@ def company_reasoning(evidence_list):
     # FINAL VERDICT
     # --------------------------------
 
-    if total_score >= 40:
-        return True, "HIGH CONFIDENCE", role
+    if total_score >= 70 and technical_hits >= 1:
 
-    elif total_score >= 20:
-        return True, "MEDIUM CONFIDENCE", role
+        return (
+            True,
+            "HIGH CONFIDENCE",
+            role,
+            total_score,
+            score_breakdown
+        )
+
+    elif total_score >= 40:
+
+        return (
+            True,
+            "MEDIUM CONFIDENCE",
+            role,
+            total_score,
+            score_breakdown
+        )
 
     elif total_score >= 8:
-        return True, "LOW CONFIDENCE", role
 
-    return False, "NO EVIDENCE", "unknown"
+        return (
+            True,
+            "LOW CONFIDENCE",
+            role,
+            total_score,
+            score_breakdown
+        )
+
+    return (
+        False,
+        "NO EVIDENCE",
+        "unknown",
+        total_score,
+        score_breakdown
+    )

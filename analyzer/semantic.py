@@ -3,15 +3,6 @@ from sentence_transformers.util import cos_sim
 
 
 # -------------------------
-# LOAD MODEL
-# -------------------------
-
-model = SentenceTransformer(
-    "sentence-transformers/all-MiniLM-L6-v2"
-)
-
-
-# -------------------------
 # EVIDENCE DEFINITIONS
 # -------------------------
 
@@ -71,22 +62,43 @@ EVIDENCE_TYPES = {
     innovation,
     future technology,
     or automation buzzwords.
+    """,
+
+    "career_ai": """
+    Hiring for artificial intelligence, machine learning,
+    deep learning, data science, NLP, computer vision,
+    or LLM engineering positions. Job postings seeking
+    skills in PyTorch, TensorFlow, transformers, model training,
+    AI research, or prompt engineering.
     """
 }
 
 
 # -------------------------
-# PRECOMPUTE EMBEDDINGS
+# LAZY LOADING LOADER
 # -------------------------
 
-definition_embeddings = {}
+_model = None
+_definition_embeddings = {}
 
-for label, text in EVIDENCE_TYPES.items():
+def get_model():
+    global _model
+    if _model is None:
+        _model = SentenceTransformer(
+            "sentence-transformers/all-MiniLM-L6-v2"
+        )
+    return _model
 
-    definition_embeddings[label] = model.encode(
-        text,
-        convert_to_tensor=True
-    )
+def get_definition_embeddings():
+    global _definition_embeddings
+    if not _definition_embeddings:
+        model = get_model()
+        for label, text in EVIDENCE_TYPES.items():
+            _definition_embeddings[label] = model.encode(
+                text,
+                convert_to_tensor=True
+            )
+    return _definition_embeddings
 
 
 # -------------------------
@@ -96,19 +108,32 @@ for label, text in EVIDENCE_TYPES.items():
 def analyze_chunks(chunks):
 
     findings = []
+    
+    # Filter short chunks early to avoid redundant model passes
+    valid_chunks = [c for c in chunks if len(c.strip()) >= 30]
+    if not valid_chunks:
+        return findings
 
-    for text in chunks:
+    try:
+        # Load the sentence-transformer model lazily on first run
+        model = get_model()
+        definition_embeddings = get_definition_embeddings()
 
-        if len(text.strip()) < 80:
-            continue
+        # Batch encode all valid chunks to utilize PyTorch vectorization
+        chunk_embeddings = model.encode(
+            valid_chunks,
+            batch_size=32,
+            show_progress_bar=False,
+            convert_to_tensor=True
+        )
+    except Exception as e:
+        print(f"[Semantic] Failed to batch encode chunks: {e}")
+        return findings
+
+    for i, text in enumerate(valid_chunks):
 
         try:
-
-            chunk_embedding = model.encode(
-                text,
-                convert_to_tensor=True
-            )
-
+            chunk_embedding = chunk_embeddings[i]
             best_category = None
             best_score = 0
 
@@ -124,16 +149,13 @@ def analyze_chunks(chunks):
                     best_score = similarity
                     best_category = category
 
+            # 0.38 is the similarity threshold
             if best_score > 0.38:
 
                 findings.append({
-
                     "text": text,
-
                     "similarity": round(best_score, 3),
-
                     "category": best_category,
-
                     "strength": (
                         "strong"
                         if best_score > 0.62
@@ -141,7 +163,8 @@ def analyze_chunks(chunks):
                     )
                 })
 
-        except:
+        except Exception as e:
+            print(f"[Semantic] Failed to process chunk {i}: {e}")
             continue
 
     return findings

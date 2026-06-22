@@ -2,125 +2,133 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>
-        AI Usage Detection
-    </title>
-
-    <link
-        rel="stylesheet"
-        href="{% static 'css/styles.css' %}"
-    >
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Usage Detection Engine</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-
 <body>
+
+<div class="grid-bg"></div>
 
 <div class="container">
 
-    <!-- HERO -->
-
-    <div class="hero">
-
-        <h1>
-            AI Usage Detection Engine
-        </h1>
-
+    <!-- HERO SECTION -->
+    <header class="hero">
+        <div class="glowing-orb"></div>
+        <h1>AI Usage <span>Detection Engine</span></h1>
         <p>
-            Analyze organizations for AI adoption, technical AI integrations,
-            semantic AI signals, and operational AI indicators using automated
-            intelligence pipelines.
+            An intelligent web profiling platform that extracts and classifies how organizations adopt Artificial Intelligence across their products, operations, infrastructure, and public-facing profiles.
         </p>
+    </header>
 
-    </div>
-
-    <!-- SEARCH -->
-
-    <div class="search-box">
-
-        <form
-            method="POST"
-            class="search-form"
-        >
-
+    <!-- SEARCH & ANALYZE -->
+    <section class="search-box">
+        <form method="POST" class="search-form" id="analysis-form">
             {% csrf_token %}
-
-            <input
-                type="text"
-                name="url"
-                placeholder="Enter company URL"
-                required
-            >
-
-            <button type="submit">
-                Analyze Company
-            </button>
-
+            {% if error %}
+            <div class="error-box animate-fade-in">
+                <div class="error-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <div class="error-content">
+                    <h4>Scan Restricted</h4>
+                    <p>{{ error }}</p>
+                </div>
+            </div>
+            {% endif %}
+            <div class="input-group">
+                <input
+                    type="text"
+                    name="url"
+                    placeholder="Enter company URL (e.g., coderabbit.ai)"
+                    required
+                    id="url-input"
+                >
+                <button type="submit" id="submit-btn">
+                    <span>Analyze Company</span>
+                </button>
+            </div>
+            
+            <div class="recheck-container">
+                <label class="switch">
+                    <input type="checkbox" name="recheck" value="true">
+                    <span class="slider round"></span>
+                </label>
+                <span class="switch-label">Force fresh analysis (bypass database cache)</span>
+            </div>
         </form>
+    </section>
 
-    </div>
-
-    <!-- LIVE STATUS -->
-
-    {% if task_id %}
-
-    <div
-        class="status-box"
-        id="status-box"
-    >
-
-        <h3>
-            Intelligence Pipeline Running
-        </h3>
-
-        <p>
-            Task ID:
-            {{ task_id }}
+    <!-- LIVE STATUS PIPELINE -->
+    {% if task_id or cached_company_id %}
+    <div class="status-box" id="status-box">
+        <div class="loader-header">
+            <h3>Intelligence Pipeline Running</h3>
+            <div class="pulse-ring"></div>
+        </div>
+        <p class="task-id">
+            Target URL: <span id="scanning-url">Analyzing...</span>
         </p>
 
-        <!-- PIPELINE -->
-
+        <!-- PIPELINE STATUS STEP -->
         <div class="pipeline-step pipeline-active">
-            <span id="progress-step">
-                Initializing analysis...
-            </span>
+            <span id="progress-step">Initializing pipeline...</span>
         </div>
 
-        <!-- PROGRESS -->
-
+        <!-- PROGRESS BAR -->
         <div class="progress-track">
-
-            <div
-                class="progress-bar"
-                id="progress-bar"
-            ></div>
-
+            <div class="progress-bar" id="progress-bar"></div>
         </div>
-
-        <p id="progress-percent">
-            0%
-        </p>
-
+        <div class="progress-stats">
+            <span id="progress-percent">0%</span>
+            <span class="progress-indicator">Parsing DOM & scripts...</span>
+        </div>
     </div>
-
     {% endif %}
 
-    <!-- RESULTS -->
+    <!-- DETAILED LIVE RESULTS -->
+    <main id="live-result"></main>
 
-    <div id="live-result"></div>
+    <!-- HISTORY / RECENT SCANS DASHBOARD -->
+    {% if history %}
+    <section class="history-section" id="history-section">
+        <div class="section-header">
+            <h2>Recent Scan History</h2>
+            <div class="divider"></div>
+        </div>
+        <div class="history-grid">
+            {% for company in history %}
+            <article class="history-card" onclick="loadCachedReport({{ company.id }})">
+                <div class="history-card-glow"></div>
+                <div class="card-top">
+                    <span class="history-url">{{ company.website }}</span>
+                    <span class="status-badge {% if company.verdict %}active-ai{% else %}inactive-ai{% endif %}">
+                        {% if company.verdict %}AI Active{% else %}No AI{% endif %}
+                    </span>
+                </div>
+                <div class="card-bottom">
+                    <span class="history-role" data-role="{{ company.role }}">{{ company.role }}</span>
+                    <span class="history-score">Maturity: <strong>{{ company.maturity_score }}</strong></span>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
 
 </div>
 
-
-{% if task_id %}
-
 <script>
-
-    const taskId = "{{ task_id }}";
-
+    const taskId = "{% if task_id %}{{ task_id }}{% endif %}";
+    const cachedCompanyId = "{% if cached_company_id %}{{ cached_company_id }}{% endif %}";
 </script>
-
 <script src="{% static 'js/app.js' %}"></script>
-
-{% endif %}
 
 </body>
 </html>
