@@ -1,6 +1,10 @@
 import os
+import json
+import logging
 import requests
 from django.conf import settings
+
+logger = logging.getLogger("analyzer.summary")
 
 
 def generate_summary(role, confidence, evidence_summary, evidence_list=None):
@@ -63,21 +67,26 @@ Provide ONLY the executive summary text, without any introductory phrases or mar
                 ]
             }
 
+            logger.warning("[Summary] Querying Gemini API for executive summary...")
             response = requests.post(
                 url,
                 json=payload,
                 headers=headers,
-                timeout=8
+                timeout=30
             )
+            logger.warning(f"[Summary] API Response Status Code: {response.status_code}")
 
             if response.status_code == 200:
                 result = response.json()
                 summary_text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
                 if summary_text:
+                    logger.warning(f"[Summary] Succeeded! Summary generated: {summary_text[:80]}...")
                     return summary_text
+            else:
+                logger.warning(f"[Summary] API failed with status code {response.status_code}: {response.text}")
 
         except Exception as e:
-            print(f"[Summary] Failed to query Gemini API: {e}")
+            logger.warning(f"[Summary] API exception: {e}")
 
     # --------------------------------
     # HEURISTIC FALLBACK

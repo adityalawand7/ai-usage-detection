@@ -170,7 +170,7 @@ def run_gemini_fallback(url, api_key):
     
     try:
         logger.warning(f"[Gemini Fallback] Sending search query for {clean_domain}...")
-        response = requests.post(api_url, json=payload, headers=headers, timeout=15)
+        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
         logger.warning(f"[Gemini Fallback] API Response Status Code: {response.status_code}")
         if response.status_code == 200:
             result = response.json()

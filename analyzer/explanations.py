@@ -1,7 +1,10 @@
 import os
 import json
+import logging
 import requests
 from django.conf import settings
+
+logger = logging.getLogger("analyzer.explanations")
 
 LOCAL_EXPLANATIONS = {
     "product_ai": "Refers to building, developing, or selling proprietary AI software, platforms, or copilots.",
@@ -92,12 +95,14 @@ Example response:
             }
         }
 
+        logger.warning(f"[Explanations] Querying Gemini API for {len(items_to_explain)} batch explanations...")
         response = requests.post(
             url,
             json=payload,
             headers=headers,
-            timeout=10
+            timeout=30
         )
+        logger.warning(f"[Explanations] API Response Status Code: {response.status_code}")
 
         if response.status_code == 200:
             result = response.json()
@@ -108,8 +113,13 @@ Example response:
                 for idx, exp in enumerate(explanations):
                     items_to_explain[idx]["explanation"] = exp.strip()
                     items_to_explain[idx]["explanation_source"] = "gemini"
+                logger.warning(f"[Explanations] Succeeded! Applied {len(explanations)} custom Gemini explanations.")
+            else:
+                logger.warning(f"[Explanations] Array length mismatch: {len(explanations)} vs {len(items_to_explain)}")
+        else:
+            logger.warning(f"[Explanations] API failed with status code {response.status_code}: {response.text}")
 
     except Exception as e:
-        print(f"[Explanations] Failed to generate AI reasoning: {e}")
+        logger.warning(f"[Explanations] API exception occurred: {e}")
 
     return serialized_evidence

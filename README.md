@@ -87,6 +87,15 @@ Built with Celery + Redis for:
 
 ---
 
+## Scan History & Persistence
+
+Saves completed intelligence reports to a local SQLite database, allowing users to:
+* View a persistent dashboard showing the latest 15 scans.
+* Retrieve cached reports instantly with customizable validation check TTLs.
+* Avoid redundant scanning and optimize API costs.
+
+---
+
 ## Dynamic Crawling Engine
 
 Powered by Playwright:
@@ -359,10 +368,8 @@ python manage.py runserver
 # Future Enhancements
 
 * Smart crawl prioritization
-* AI-generated intelligence summaries
 * Company comparison engine
 * PDF export reports
-* Scan history persistence
 * Real-time crawl visualization
 * Industry benchmarking
 * Risk scoring
