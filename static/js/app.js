@@ -17,6 +17,25 @@ const capabilityLabels = {
     image_ai: "Image & Creative AI"
 };
 
+function formatTimeAgo(dateString) {
+    if (!dateString) return "Just now";
+    try {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMin = Math.floor(diffMs / 60000);
+        const diffHr = Math.floor(diffMin / 60);
+        const diffDays = Math.floor(diffHr / 24);
+
+        if (diffMin < 1) return "Just now";
+        if (diffMin < 60) return `${diffMin}m ago`;
+        if (diffHr < 24) return `${diffHr}h ago`;
+        return `${diffDays}d ago`;
+    } catch (e) {
+        return "Recently";
+    }
+}
+
 // --------------------------------
 // DISPLAY SCAN REPORT
 // --------------------------------
@@ -86,6 +105,10 @@ function renderReport(result) {
                     <div class="meta-row">
                         <span class="meta-label">Confidence Score</span>
                         <strong class="meta-val">${Number(totalScore).toFixed(1)} pts</strong>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">Last Scanned</span>
+                        <strong class="meta-val">${formatTimeAgo(result.last_analyzed)}</strong>
                     </div>
                 </div>
             </div>
@@ -211,6 +234,11 @@ function renderReport(result) {
                         </div>
                         <p class="evidence-url">URL: <a href="${e.url}" target="_blank">${e.url}</a></p>
                         <blockquote class="evidence-text">"${e.text}"</blockquote>
+                        ${e.explanation ? `
+                            <div class="evidence-explanation">
+                                <strong>AI Analysis (${e.explanation_source === 'gemini' ? 'Gemini 2.5' : 'Local Heuristics'}):</strong> ${e.explanation}
+                            </div>
+                        ` : ""}
                     </div>
                 `;
             });
@@ -242,6 +270,58 @@ function renderReport(result) {
     }
 }
 
+function updatePipelineSteps(progress) {
+    const steps = [
+        { id: "step-init", trigger: 0 },
+        { id: "step-crawl", trigger: 15 },
+        { id: "step-extract", trigger: 35 },
+        { id: "step-semantic", trigger: 55 },
+        { id: "step-fingerprint", trigger: 75 },
+        { id: "step-report", trigger: 90 }
+    ];
+
+    steps.forEach((step, idx) => {
+        const el = document.getElementById(step.id);
+        if (!el) return;
+
+        let isCompleted = false;
+        let isActive = false;
+
+        if (idx === steps.length - 1) {
+            if (progress >= step.trigger && progress < 100) {
+                isActive = true;
+            } else if (progress >= 100) {
+                isCompleted = true;
+            }
+        } else {
+            const nextStep = steps[idx + 1];
+            if (progress >= nextStep.trigger) {
+                isCompleted = true;
+            } else if (progress >= step.trigger) {
+                isActive = true;
+            }
+        }
+
+        if (isCompleted) {
+            el.className = "checklist-item completed";
+        } else if (isActive) {
+            el.className = "checklist-item active";
+        } else {
+            el.className = "checklist-item pending";
+        }
+    });
+}
+
+function markErrorOnPipeline() {
+    const activeEl = document.querySelector(".checklist-item.active");
+    if (activeEl) {
+        activeEl.className = "checklist-item error";
+    } else {
+        const pendingEl = document.querySelector(".checklist-item.pending");
+        if (pendingEl) pendingEl.className = "checklist-item error";
+    }
+}
+
 // --------------------------------
 // TASK POLLING & LOADER
 // --------------------------------
@@ -264,8 +344,7 @@ async function checkStatus() {
                 document.getElementById("progress-bar").style.width = "100%";
                 document.getElementById("progress-bar").style.background = "var(--danger)";
                 document.getElementById("progress-percent").innerText = "Error";
-                const indicator = document.querySelector(".progress-indicator");
-                if (indicator) indicator.innerText = "Check Celery worker trace logs for details.";
+                markErrorOnPipeline();
             }
         }
         else if (data.status === "running") {
@@ -273,15 +352,8 @@ async function checkStatus() {
             document.getElementById("progress-bar").style.width = data.progress + "%";
             document.getElementById("progress-percent").innerText = data.progress + "%";
             
-            // Adjust loading helper text
-            const indicator = document.querySelector(".progress-indicator");
-            if (indicator) {
-                if (data.progress < 35) indicator.innerText = "Launching headless browser...";
-                else if (data.progress < 55) indicator.innerText = "Analyzing page DOM tree nodes...";
-                else if (data.progress < 75) indicator.innerText = "Running GPU/CPU Transformer Embeddings...";
-                else if (data.progress < 90) indicator.innerText = "Evaluating evidence caps & bonuses...";
-                else indicator.innerText = "Compiling report metrics...";
-            }
+            // Update step statuses in the checklist
+            updatePipelineSteps(data.progress);
 
             setTimeout(checkStatus, 1500);
         } 

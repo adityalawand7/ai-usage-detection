@@ -25,7 +25,7 @@ def run_analysis(self, url):
     )
 
     # --------------------------------
-    # SERIALIZE EVIDENCE
+    # SERIALIZE EVIDENCE & GENERATE EXPLANATIONS
     # --------------------------------
 
     serialized = []
@@ -41,7 +41,8 @@ def run_analysis(self, url):
             "category": e.category,
         })
 
-    result["evidence"] = serialized
+    from analyzer.explanations import generate_evidence_explanations
+    result["evidence"] = generate_evidence_explanations(serialized)
 
     # --------------------------------
     # PERSIST TO DATABASE

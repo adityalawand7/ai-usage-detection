@@ -35,73 +35,36 @@ def infer_company_role(evidence_list):
     for e in evidence_list:
         category_counter[e.category] += 1
 
+    total_hits = sum(category_counter.values())
+    if total_hits == 0:
+        return "unknown"
 
-    # --------------------------------
-    # ROLE LOGIC
-    # --------------------------------
-
-    if (
-        category_counter["technical_ai"] >= 2
-        and category_counter["product_ai"] >= 3
-    ):
+    # 1. AI-Native: Must have actual technical signatures and product mentions
+    if category_counter["technical_ai"] >= 1 and category_counter["product_ai"] >= 2:
         return "ai_native"
 
+    # 2. AI Governance & Advisory: Primary focus is advisory, consulting, or governance
+    advisory_hits = category_counter["governance_ai"] + category_counter["consulting_ai"]
+    if advisory_hits >= 2 and advisory_hits >= category_counter["product_ai"]:
+        return "ai_governance"
 
-    if category_counter["product_ai"] >= 3:
+    # 3. AI Product: Main focus is product, but doesn't have native technical signatures yet
+    if category_counter["product_ai"] >= 3 and category_counter["product_ai"] > advisory_hits:
         return "ai_product"
 
-
-    # Active AI hiring or internal tools usage signals an AI-Enabled firm
-    if (
-        category_counter["career_ai"] >= 2
-        or category_counter["internal_ai"] >= 2
-    ):
+    # 4. AI-Enabled: Heavy internal usage or active hiring
+    if category_counter["internal_ai"] >= 2 or category_counter["career_ai"] >= 2:
         return "ai_enabled"
 
-
-    if (
-        (
-            category_counter["governance_ai"] >= 3
-            or category_counter["consulting_ai"] >= 3
-        )
-        and category_counter["product_ai"] <= 1
-        and category_counter["technical_ai"] == 0
-    ):
-        return "ai_governance"
-
-
-    # governance / advisory heavy
-    governance_keywords = [
-        "governance",
-        "risk",
-        "compliance",
-        "security",
-        "policy",
-        "framework",
-        "responsible ai",
-    ]
-
-    governance_hits = 0
-
-    for e in evidence_list:
-
-        text = e.text.lower()
-
-        if any(k in text for k in governance_keywords):
-            governance_hits += 1
-
-    if governance_hits >= 3:
-        return "ai_governance"
-
-
-    if category_counter["research_ai"] >= 3:
+    # 5. AI Research: Heavy research focus
+    if category_counter["research_ai"] >= 2 and category_counter["research_ai"] >= category_counter["product_ai"]:
         return "ai_research"
 
-
-    if category_counter["marketing_ai"] >= 5:
+    # 6. AI Marketing Presence: Mostly marketing fluff, very few other signals
+    if category_counter["marketing_ai"] >= 3 and category_counter["marketing_ai"] > (total_hits - category_counter["marketing_ai"]):
         return "ai_marketing_only"
 
-
+    # Fallback to consumer
     return "ai_consumer"
 
 # --------------------------------

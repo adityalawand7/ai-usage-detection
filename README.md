@@ -90,21 +90,27 @@ Built with Celery + Redis for:
 ## Dynamic Crawling Engine
 
 Powered by Playwright:
-
-* Crawls internal pages
-* Executes JavaScript-heavy websites
-* Extracts rendered content
-* Collects scripts and runtime signals
+* Crawls internal subpages and processes JavaScript-heavy content.
+* Employs Firefox launch settings matched with custom User-Agent signatures to bypass aggressive server firewalls.
+* Automatically filters and avoids high User-Generated Content (UGC) platforms and job boards.
 
 ---
 
-## AI Intelligence Summary
+## AI Evidence Reasoner (Gemini 2.5)
 
-Generates executive-style summaries explaining:
+Integrates Gemini API to:
+* Generate natural language explanations for why specific pieces of evidence were chosen.
+* Tag each explanation with its source label (**AI Analysis (Gemini 2.5)** vs. **AI Analysis (Local Heuristics)** fallback).
+* Create high-quality executive-style summaries of the organization's overall AI adoption.
 
-* How the organization uses AI
-* Whether AI is operational or marketing-oriented
-* The confidence level of the analysis
+---
+
+## Gemini Search Grounding Verification Fallback
+
+A secondary validation layer:
+* Triggered automatically if the local crawler finds no raw evidence or yields a low confidence score (< 10).
+* Queries Gemini with **Google Search Grounding** enabled to check web-wide integrations and partnerships (e.g. Gateless, Tavant).
+* Overrides results to **`GEMINI VERIFIED`** and injects search-grounded evidence items directly into the UI dashboard if verified.
 
 ---
 
@@ -115,13 +121,13 @@ Generates executive-style summaries explaining:
 | Backend             | Django                |
 | Task Queue          | Celery                |
 | Broker              | Redis                 |
-| Crawling Engine     | Playwright            |
-| AI / NLP            | Sentence Transformers |
+| Crawling Engine     | Playwright (Firefox)  |
+| AI Models           | Gemini 2.5 Flash API  |
+| local Embeddings    | Sentence Transformers |
 | ML Framework        | PyTorch               |
 | Semantic Similarity | scikit-learn          |
 | HTML Parsing        | BeautifulSoup         |
 | Frontend            | HTML, CSS, JavaScript |
-| Containerization    | Docker                |
 
 ---
 
@@ -129,43 +135,36 @@ Generates executive-style summaries explaining:
 
 ```mermaid
 flowchart TD
-
-    A[User Submits Company URL]
-    --> B[Django Frontend]
-
-    B --> C[Celery Task Queue]
-
+    A[User Submits Company URL] --> B[Django Frontend - PRG Pattern]
+    B --> C[Celery Task Queue - Concurrent Workers]
     C --> D[Redis Broker]
-
     C --> E[AI Analysis Worker]
-
     E --> F[Playwright Dynamic Crawler]
-
+    
     F --> G[Rendered HTML Extraction]
-    F --> H[Script Collection]
-    F --> I[Network Request Monitoring]
-    F --> J[Internal Link Discovery]
-
-    G --> K[Semantic Intelligence Engine]
-    H --> L[Technical Fingerprinting Engine]
-    I --> M[Behavioral AI Detection]
-
-    K --> N[Evidence Graph]
-    L --> N
-    M --> N
-
-    N --> O[Reasoning & Scoring Engine]
-
-    O --> P[AI Role Classification]
-    O --> Q[Confidence Scoring]
-    O --> R[False Positive Reduction]
-
-    P --> S[Executive AI Summary]
-
-    Q --> T[Final Intelligence Report]
+    F --> H[Script Collection & Fingerprinting]
+    
+    G --> I[Sentence-Transformer Semantic Engine]
+    H --> J[Technical Fingerprint Detection]
+    
+    I --> K[Evidence Graph]
+    J --> K
+    
+    K --> L[Reasoning & Scoring Engine]
+    
+    L --> M{Evidence Found?}
+    M -- Yes --> N[Proportional Role Classification]
+    M -- No / Score < 10 --> O[Gemini Web Search Fallback]
+    
+    O --> P{AI Usage Verified?}
+    P -- Yes --> Q[Set GEMINI VERIFIED Status & Inject Evidence]
+    P -- No --> R[Set Verdict = False / No Evidence]
+    
+    N --> S[Gemini Executive Summary & Explanation Generator]
+    Q --> S
+    
+    S --> T[Final Intelligence Report]
     R --> T
-    S --> T
-
     T --> U[Frontend Dashboard Results]
 ```
 
@@ -175,25 +174,15 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-
-    A[Raw Website Data]
-    --> B[Content Cleaning]
-
-    B --> C[Text Chunking]
-
-    C --> D[Sentence Transformer Embeddings]
-
-    D --> E[Semantic Similarity Analysis]
-
-    E --> F[Evidence Classification]
-
-    F --> G[Weighted Reasoning Engine]
-
-    G --> H[AI Adoption Verdict]
-
-    H --> I[Company Role Classification]
-
-    I --> J[Confidence Generation]
+    A[Raw Web Data] --> B[Text Chunking]
+    B --> C[Transformer Embeddings]
+    C --> D[Cosine Similarity checks]
+    D --> E[Proportional Scoring Matrix]
+    E --> F{Score < 10?}
+    F -- Yes --> G[Gemini Search Grounding Fallback]
+    F -- No --> H[Local Role Assignment]
+    G --> I[Final Verdict & Explanations]
+    H --> I
 ```
 ---
 
@@ -282,7 +271,7 @@ sequenceDiagram
 
 # Local Setup
 
-## Clone Repository
+## 1. Clone Repository
 
 ```bash
 git clone <your-repo-url>
@@ -291,7 +280,17 @@ cd ai-usage-detection
 
 ---
 
-## Create Virtual Environment
+## 2. Configure Environment Variables
+
+Create a `.env` file in the root directory to store your API credentials:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+---
+
+## 3. Create Virtual Environment
 
 ```bash
 python -m venv venv
@@ -299,7 +298,7 @@ python -m venv venv
 
 ---
 
-## Activate Virtual Environment
+## 4. Activate Virtual Environment
 
 ### Windows
 
@@ -315,7 +314,7 @@ source venv/bin/activate
 
 ---
 
-## Install Dependencies
+## 5. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -323,15 +322,15 @@ pip install -r requirements.txt
 
 ---
 
-## Install Playwright Browsers
+## 6. Install Playwright Browsers
 
 ```bash
-playwright install
+playwright install firefox
 ```
 
 ---
 
-## Start Redis
+## 7. Start Redis
 
 ```bash
 docker run -d -p 6379:6379 redis
@@ -339,15 +338,17 @@ docker run -d -p 6379:6379 redis
 
 ---
 
-## Start Celery Worker
+## 8. Start Celery Worker (Concurrent Threads)
+
+To support concurrent company scanning on Windows, run the Celery worker using thread-based concurrency:
 
 ```bash
-celery -A config worker --pool=solo -l info
+celery -A config worker --pool=threads -c 4 -l info
 ```
 
 ---
 
-## Start Django Server
+## 9. Start Django Server
 
 ```bash
 python manage.py runserver

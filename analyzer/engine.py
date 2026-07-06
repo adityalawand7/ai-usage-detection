@@ -7,7 +7,13 @@ from .summary import generate_summary
 from .ai_categories import AI_CATEGORIES
 
 import re
+import os
+import json
+import logging
+import requests
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger("analyzer.engine")
 
 
 # --------------------------------
@@ -138,6 +144,57 @@ _OTHER_COMPANY_JOB_PATTERN = re.compile(
 )
 
 
+def run_gemini_fallback(url, api_key):
+    clean_domain = url.replace("https://", "").replace("http://", "").replace("www.", "").rstrip("/")
+    prompt = f"""
+    Does the company operating the website {clean_domain} use, integrate, or consult on artificial intelligence (AI) or machine learning (ML) in their business, products, or operations?
+    Respond strictly in JSON format matching this schema:
+    {{
+      "verdict": true/false,
+      "confidence": "HIGH" | "MEDIUM" | "LOW" | "NONE",
+      "role": "ai_product" | "ai_enabled" | "ai_native" | "ai_governance" | "unknown",
+      "summary": "Short executive summary of their AI usage",
+      "evidence": ["Specific example/evidence 1", "Specific example/evidence 2"]
+    }}
+    Do not include any markdown formatting or wrapper tags. Output ONLY the raw JSON text.
+    """
+    
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }],
+        "tools": [{"googleSearch": {}}]
+    }
+    
+    try:
+        logger.warning(f"[Gemini Fallback] Sending search query for {clean_domain}...")
+        response = requests.post(api_url, json=payload, headers=headers, timeout=15)
+        logger.warning(f"[Gemini Fallback] API Response Status Code: {response.status_code}")
+        if response.status_code == 200:
+            result = response.json()
+            raw_text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
+            logger.warning(f"[Gemini Fallback] API Text Returned: {raw_text}")
+            
+            # Remove markdown backticks if any were returned despite instructions
+            if raw_text.startswith("```"):
+                lines = raw_text.split("\n")
+                if lines[0].startswith("```json"):
+                    raw_text = "\n".join(lines[1:-1])
+                elif lines[0].startswith("```"):
+                    raw_text = "\n".join(lines[1:-1])
+            
+            data = json.loads(raw_text.strip())
+            logger.warning(f"[Gemini Fallback] Successfully parsed data: {data}")
+            return data
+        else:
+            logger.warning(f"[Gemini Fallback] API response error: {response.status_code} - {response.text}")
+    except Exception as e:
+        logger.warning(f"[Gemini Fallback] API exception occurred: {e}")
+    return None
+
+
 # --------------------------------
 # MAIN ENGINE
 # --------------------------------
@@ -208,7 +265,7 @@ def analyze_company(url, task=None):
             task.update_state(
                 state="PROGRESS",
                 meta={
-                    "step": f"Running semantic AI analysis ({page_url})",
+                    "step": "Running semantic AI analysis",
                     "progress": 55
                 }
             )
@@ -309,6 +366,45 @@ def analyze_company(url, task=None):
         },
         evidence_list=evidence_graph.all()
     )
+
+    # -------- GEMINI SECONDARY FALLBACK SEARCH VERIFICATION --------
+    if not verdict or total_score < 10:
+        api_key = None
+        try:
+            from django.conf import settings
+            api_key = getattr(settings, "GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY"))
+        except Exception:
+            api_key = os.environ.get("GEMINI_API_KEY")
+
+        if api_key:
+            logger.warning(f"[Engine] Triggering Gemini web search verification fallback for {url}...")
+            gemini_data = run_gemini_fallback(url, api_key)
+            if gemini_data and gemini_data.get("verdict"):
+                logger.warning(f"[Engine] Gemini verified AI usage! Overriding score.")
+                verdict = True
+                confidence = f"GEMINI VERIFIED ({gemini_data.get('confidence', 'MEDIUM')})"
+                role = gemini_data.get("role", "ai_enabled")
+                total_score = 45.0
+                score_breakdown = {
+                    "base_score": 45.0,
+                    "gemini_search_verification": 45.0
+                }
+                summary = gemini_data.get("summary", "Gemini search confirmed AI usage and integrations for this organization.")
+                
+                # Add the search grounding evidence to the evidence graph so it displays in UI
+                for ev_text in gemini_data.get("evidence", []):
+                    # Map category dynamically
+                    cat = "product_ai" if role in ["ai_product", "ai_native"] else "internal_ai"
+                    evidence_graph.add(
+                        Evidence(
+                            url=url,
+                            page_type="semantic",
+                            text=ev_text,
+                            similarity=0.85,
+                            strength="strong",
+                            category=cat
+                        )
+                    )
 
     # Compile aggregated text contents for capability tag detection
     # Compile aggregated clean text content for capability tag detection

@@ -1,8 +1,37 @@
 from playwright.sync_api import sync_playwright
 from urllib.parse import urlparse
+import torch
+from sentence_transformers.util import cos_sim
+from .semantic import get_model
 
 
-MAX_PAGES = 12
+MAX_PAGES = 18
+
+RELEVANT_CONCEPTS = [
+    "Artificial intelligence products, machine learning capabilities, AI features, technology solutions, developers and engineering.",
+    "Corporate about us page, company information, executive team, organization background.",
+    "Company newsroom, official press announcements, product updates, corporate blogs.",
+    "Careers, job listings, open roles, hiring engineering and product team.",
+    "Privacy policy, terms of service, user data agreement, legal terms, security policy."
+]
+
+IRRELEVANT_CONCEPTS = [
+    "Customer support help desk center, search articles, documentation, faq, password reset, help articles.",
+    "Sign in, login portal, user settings, registration, subscribe, accounts, dashboard.",
+    "Contact us form, address, phone number, sales inquiry.",
+    "System status page, site updates, sitemap index, rss feed, accessibility statement."
+]
+
+_concept_embeddings = None
+_irrelevant_embeddings = None
+
+def get_concept_embeddings():
+    global _concept_embeddings, _irrelevant_embeddings
+    if _concept_embeddings is None:
+        model = get_model()
+        _concept_embeddings = model.encode(RELEVANT_CONCEPTS, convert_to_tensor=True)
+        _irrelevant_embeddings = model.encode(IRRELEVANT_CONCEPTS, convert_to_tensor=True)
+    return _concept_embeddings, _irrelevant_embeddings
 
 
 # --------------------------------
@@ -37,9 +66,13 @@ JOB_BOARD_LISTING_PATHS = [
 
 def discover_links(page, base_url):
 
+    # Extract anchors and innerText to form descriptions for AI ranking
     anchors = page.eval_on_selector_all(
         "a",
-        "elements => elements.map(e => e.href)"
+        """elements => elements.map(e => ({
+            href: e.href,
+            text: e.innerText || ""
+        }))"""
     )
 
     base_domain = urlparse(base_url).netloc
@@ -54,7 +87,9 @@ def discover_links(page, base_url):
 
     filtered = []
 
-    for link in anchors:
+    for item in anchors:
+        link = item["href"]
+        text = item["text"].strip()
 
         if not link or not link.startswith(("http://", "https://")):
             continue
@@ -90,67 +125,64 @@ def discover_links(page, base_url):
         ):
             continue
 
-        # --------------------------------
-        # BAD URL FILTERS
-        # --------------------------------
+        filtered.append({"href": link, "text": text})
 
-        BAD_PATTERNS = [
-            "search?",
-            "setprefs",
-            "accounts.google",
-            "maps.google",
-            "policies.google",
-            "/preferences",
-            "/advanced_search",
-            "support.google",
-            "privacy",
-            "terms",
-            "signin",
-            "login",
-        ]
+    # Deduplicate keeping the first occurrence
+    seen_hrefs = set()
+    unique_candidates = []
+    for item in filtered:
+        h = item["href"]
+        if h not in seen_hrefs:
+            seen_hrefs.add(h)
+            unique_candidates.append(item)
 
-        # skip noisy pages, but keep essential career pages even if they contain 'search'
-        if any(bad in link.lower() for bad in BAD_PATTERNS):
-            is_essential_career = any(word in link.lower() for word in ["job", "career", "opening"])
-            is_blocked_anyway = any(blocked in link.lower() for blocked in ["login", "signin", "privacy", "terms", "google"])
-            if not is_essential_career or is_blocked_anyway:
-                continue
+    if not unique_candidates:
+        return []
 
-        filtered.append(link)
+    # AI scoring using SentenceTransformer
+    model = get_model()
+    rel_embeds, irrel_embeds = get_concept_embeddings()
 
-    IMPORTANT_PATTERNS = [
-        "ai",
-        "artificial-intelligence",
-        "machine-learning",
-        "product",
-        "platform",
-        "solution",
-        "career",
-        "careers",
-        "job",
-        "jobs",
-        "join-us",
-        "join",
-        "work-with-us",
-        "opportunities",
-    ]
-    unique_links = list(
-        dict.fromkeys(filtered)
-    )
+    descriptions = []
+    for item in unique_candidates:
+        parsed_link = urlparse(item["href"])
+        path = parsed_link.path or "/"
+        descriptions.append(f"Path: {path} | Anchor: {item['text']}")
 
-    priority_links = []
-    other_links = []
+    try:
+        desc_embeddings = model.encode(descriptions, convert_to_tensor=True, show_progress_bar=False)
+    except Exception as e:
+        print(f"[Crawler AI Filter] Error encoding descriptions: {e}")
+        # Default fallback: score careers highly and retain some order
+        return [(item["href"], 0.5) for item in unique_candidates]
 
-    for link in unique_links:
-        if any(pattern in link.lower() for pattern in IMPORTANT_PATTERNS):
-            priority_links.append(link)
+    scored_links = []
+    for i, item in enumerate(unique_candidates):
+        emb = desc_embeddings[i]
+
+        # Calculate max similarity with concepts
+        rel_sims = cos_sim(emb, rel_embeds)
+        max_rel_sim = float(rel_sims.max())
+
+        irrel_sims = cos_sim(emb, irrel_embeds)
+        max_irrel_sim = float(irrel_sims.max())
+
+        # If it is more relevant than irrelevant and passes minimum threshold
+        if max_rel_sim > max_irrel_sim and max_rel_sim > 0.12:
+            href = item["href"]
+            scored_links.append((href, max_rel_sim))
+            
+            # Check if this is a career/jobs search page candidate
+            href_lower = href.lower()
+            if any(kw in href_lower for kw in ["search-results", "/search", "/jobs", "/careers"]):
+                if "?" not in href:
+                    scored_links.append((href + "?keywords=AI", max_rel_sim))
+                    scored_links.append((href + "?q=AI", max_rel_sim))
         else:
-            other_links.append(link)
+            # print(f"[Crawler AI Filter] Discarded link: {item['href']} (rel: {max_rel_sim:.3f}, irrel: {max_irrel_sim:.3f})")
+            pass
 
-    return (
-        priority_links
-        + other_links
-    )[:MAX_PAGES]
+    return scored_links
 
 
 # --------------------------------
@@ -192,10 +224,10 @@ def fetch_pages(base_url, task=None):
 
     with sync_playwright() as p:
 
-        browser = p.chromium.launch(headless=True)
+        browser = p.firefox.launch(headless=True)
 
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0",
             ignore_https_errors=True,
             viewport={"width": 1280, "height": 800}
         )
@@ -245,9 +277,10 @@ def fetch_pages(base_url, task=None):
         # --------------------------------
         # DYNAMIC LINK QUEUE INITIALIZATION
         # --------------------------------
-        to_visit = [base_url]
+        to_visit = [(base_url, 1.0)]
         visited = set()
         crawled_count = 0
+        legal_crawled_count = 0
 
         # Guesses for career pages
         career_candidates = [
@@ -277,68 +310,36 @@ def fetch_pages(base_url, task=None):
             for candidate in subdomain_candidates:
                 career_links.append(candidate)
 
-            for cl in career_links:
-                if cl not in to_visit:
-                    to_visit.append(cl)
-
-        def prioritize_queue(queue, visited_set):
-            """Sort queue to crawl job details, career listing pages first."""
-            job_details = []
-            career_landings = []
-            ai_pages = []
-            others = []
-
-            ALLOWED_ATS_DOMAINS = [
-                "myworkdayjobs.com",
-                "greenhouse.io",
-                "lever.co",
-                "bamboohr.com",
-                "recruitee.com",
-                "smartrecruiters.com",
-                "workable.com",
-                "ashbyhq.com"
+            # Seed search queries for Phenom, Workday, etc.
+            search_queries = [
+                "/careers?keywords=AI",
+                "/careers?q=AI",
+                "/jobs?q=AI",
+                "/jobs?keywords=AI",
+                "/us/en/search-results?keywords=AI",
+                "/search-results?keywords=AI"
             ]
+            for path in search_queries:
+                career_links.append(base_url.rstrip("/") + path)
 
-            for item in queue:
-                if item in visited_set:
-                    continue
-                parsed = urlparse(item)
-                item_lower = item.lower()
+            # Also seed subdomain search query versions
+            for candidate in subdomain_candidates:
+                career_links.append(candidate.rstrip("/") + "/jobs?q=AI")
+                career_links.append(candidate.rstrip("/") + "/careers?keywords=AI")
+                career_links.append(candidate.rstrip("/") + "/us/en/search-results?keywords=AI")
 
-                # Check if it is an external ATS job or internal job detail
-                is_ats = any(ats in parsed.netloc for ats in ALLOWED_ATS_DOMAINS)
-                is_job_detail = is_ats or (
-                    any(p in parsed.path.lower() for p in ["/job/R-", "/jobs/R-", "/job/", "/jobs/", "/vacancy/", "/opening/"])
-                    and not any(p == parsed.path.lower().rstrip("/") for p in ["/job", "/jobs", "/careers", "/career"])
-                )
-
-                if is_job_detail:
-                    job_details.append(item)
-                elif any(word in item_lower for word in ["career", "jobs", "join"]):
-                    career_landings.append(item)
-                elif any(word in item_lower for word in ["ai", "artificial-intelligence", "machine-learning"]):
-                    ai_pages.append(item)
-                else:
-                    others.append(item)
-
-            # Recombine and keep unique elements while preserving order
-            seen = set()
-            result = []
-            for item in (job_details + career_landings + ai_pages + others):
-                if item not in seen:
-                    seen.add(item)
-                    result.append(item)
-            return result
+            for cl in career_links:
+                if not any(x[0] == cl for x in to_visit):
+                    to_visit.append((cl, 0.85)) # Seed guessed careers with high priority
 
         # --------------------------------
         # CRAWL LOOP
         # --------------------------------
         while to_visit and crawled_count < MAX_PAGES:
-            to_visit = prioritize_queue(to_visit, visited)
-            if not to_visit:
-                break
+            # Sort the queue dynamically by relevance score descending
+            to_visit.sort(key=lambda x: x[1], reverse=True)
+            link, current_score = to_visit.pop(0)
 
-            link = to_visit.pop(0)
             if link in visited:
                 continue
 
@@ -349,6 +350,16 @@ def fetch_pages(base_url, task=None):
                     visited.add(link)
                     continue
 
+            # Cap legal/privacy/terms page crawling to a maximum of 1 page
+            is_legal = any(word in link.lower() for word in ["privacy", "terms", "legal"])
+            if is_legal:
+                if legal_crawled_count >= 1:
+                    print(f"[Crawler] Skipping legal/privacy page crawl (capped): {link}")
+                    visited.add(link)
+                    continue
+                legal_crawled_count += 1
+                print(f"[Crawler] Accessing legal/privacy page: {link}")
+
             visited.add(link)
 
             try:
@@ -357,7 +368,7 @@ def fetch_pages(base_url, task=None):
                     task.update_state(
                         state="PROGRESS",
                         meta={
-                            "step": f"Crawling website: page {crawled_count+1} of {MAX_PAGES} ({urlparse(link).path or '/'})",
+                            "step": f"Crawling website (page {crawled_count+1} of {MAX_PAGES})",
                             "progress": progress
                         }
                     )
@@ -430,7 +441,10 @@ def fetch_pages(base_url, task=None):
                         if input_element:
                             print(f"[Crawler Automation] Found search input on {link}. Searching for 'AI'...")
                             input_element.click()
-                            input_element.fill("AI")
+                            # Select all and delete to clear existing text, then type with delay to trigger framework bindings
+                            page.keyboard.press("Control+A")
+                            page.keyboard.press("Backspace")
+                            page.keyboard.type("AI", delay=150)
 
                             # Look for the search button and click it to submit
                             submit_selectors = [
@@ -443,22 +457,21 @@ def fetch_pages(base_url, task=None):
                                 "button[type='submit']"
                             ]
 
-                            clicked_submit = False
                             for sel in submit_selectors:
                                 btn = page.locator(sel).first
                                 try:
                                     btn.wait_for(state="visible", timeout=1500)
                                     if btn.is_enabled():
                                         btn.click()
-                                        clicked_submit = True
                                         print(f"[Crawler Automation] Clicked submit button: {sel}")
+                                        page.wait_for_timeout(1000)
                                         break
                                 except Exception:
                                     continue
 
-                            if not clicked_submit:
-                                page.keyboard.press("Enter")
-                                print("[Crawler Automation] Pressed Enter to submit search")
+                            # Always press Enter to ensure submit triggers on frameworks that require it
+                            page.keyboard.press("Enter")
+                            print("[Crawler Automation] Pressed Enter to submit search")
 
                             # Wait for dynamic query results to populate
                             page.wait_for_timeout(10000)
@@ -490,10 +503,16 @@ def fetch_pages(base_url, task=None):
 
                 # Dynamic link discovery: find and add links from current page to to_visit
                 discovered = discover_links(page, base_url)
-                for dl in discovered:
-                    if dl in visited or dl in to_visit:
+                for dl, score in discovered:
+                    if dl in visited:
                         continue
-                    to_visit.append(dl)
+                    existing_idx = next((i for i, x in enumerate(to_visit) if x[0] == dl), None)
+                    if existing_idx is not None:
+                        # Keep the highest relevance score
+                        if score > to_visit[existing_idx][1]:
+                            to_visit[existing_idx] = (dl, score)
+                    else:
+                        to_visit.append((dl, score))
 
             except Exception as e:
                 print(f"[Crawler] Failed {link}: {e}")

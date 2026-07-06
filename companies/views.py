@@ -1,5 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.utils import timezone
+from datetime import timedelta
 
 from celery.result import AsyncResult
 
@@ -8,6 +10,7 @@ from .models import Company
 
 
 def submit_company(request):
+    from django.shortcuts import redirect
 
     context = {}
 
@@ -54,23 +57,40 @@ def submit_company(request):
                 "simplyhired.com", "careerbuilder.com", "dice.com", "wellfound.com"
             ]
             
-            is_ugc = any(ugc in host for ugc in UGC_DOMAINS)
+            is_ugc = any(host == ugc or host.endswith("." + ugc) for ugc in UGC_DOMAINS)
 
             if is_ugc:
                 context["error"] = "Scanning platforms with high user-generated content (UGC) or job boards is disabled to prevent misleading AI usage detection."
             else:
-                # Caching check
+                # Caching check with 30-day expiration TTL
                 existing = Company.objects.filter(
                     website=url,
                     has_run_analysis=True
                 ).first()
 
-                if existing and not recheck:
-                    # Direct immediate rendering using DB cache
-                    context["cached_company_id"] = existing.id
+                CACHE_TTL_DAYS = 30
+                is_cache_valid = False
+                if existing:
+                    cache_age = timezone.now() - existing.last_analyzed
+                    if cache_age < timedelta(days=CACHE_TTL_DAYS):
+                        is_cache_valid = True
+
+                if existing and is_cache_valid and not recheck:
+                    return redirect(f"/?cached_company_id={existing.id}&scanning_url={url}")
                 else:
                     task = run_analysis.delay(url)
-                    context["task_id"] = task.id
+                    return redirect(f"/?task_id={task.id}&scanning_url={url}")
+    else:
+        # Handle GET requests: extract parameters passed after redirect
+        task_id = request.GET.get("task_id")
+        cached_company_id = request.GET.get("cached_company_id")
+        scanning_url = request.GET.get("scanning_url")
+        if task_id:
+            context["task_id"] = task_id
+        if cached_company_id:
+            context["cached_company_id"] = cached_company_id
+        if scanning_url:
+            context["scanning_url"] = scanning_url
 
     return render(
         request,
@@ -140,6 +160,7 @@ def get_company_report(request, company_id):
                 "evidence_summary": company.evidence_summary,
                 "score_breakdown": company.score_breakdown,
                 "evidence": company.raw_evidence,
+                "last_analyzed": company.last_analyzed.isoformat(),
             }
         })
 
