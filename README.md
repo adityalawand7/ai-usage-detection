@@ -245,14 +245,14 @@ sequenceDiagram
 ## Homepage
 
 <img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/a815bee0-42f0-46a7-8bd1-20f4476a640a" />
-" />
 
 
 ---
 
 ## Live Analysis
 
-<img width="1919" height="718" alt="image" src="https://github.com/user-attachments/assets/e16c2fc5-2868-44fe-bcac-426eea202cf3" />
+<img width="1917" height="1011" alt="image" src="https://github.com/user-attachments/assets/015d08af-fe4b-4e0a-9312-e7f282d665b1" />
+<img width="1917" height="1016" alt="image" src="https://github.com/user-attachments/assets/6980331f-a60a-4344-9c0b-035d0f9329cd" />
 
 
 ---
