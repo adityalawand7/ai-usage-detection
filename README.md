@@ -244,7 +244,8 @@ sequenceDiagram
 
 ## Homepage
 
-<img width="1919" height="1018" alt="image" src="https://github.com/user-attachments/assets/27b47e6f-2f18-4561-954c-4eeabed985b7" />
+<img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/a815bee0-42f0-46a7-8bd1-20f4476a640a" />
+" />
 
 
 ---
