@@ -287,7 +287,7 @@ sequenceDiagram
 ## 1. Clone Repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/adityalawand7/ai-usage-detection.git
 cd ai-usage-detection
 ```
 
