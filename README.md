@@ -123,6 +123,15 @@ A secondary validation layer:
 
 ---
 
+## PDF Intelligence Report Exports
+
+Allows exporting and sharing of the generated intelligence reports with team members:
+* Clean, professional, print-friendly layout.
+* Includes executive summaries, custom metrics, and a dynamic Glossary explaining terms like classification roles and capability badges.
+* Generated entirely client-side using jsPDF and jspdf-autotable.
+
+---
+
 # Tech Stack
 
 | Layer               | Technology            |
