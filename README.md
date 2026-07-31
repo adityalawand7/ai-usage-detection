@@ -373,7 +373,6 @@ python manage.py runserver
 
 * Smart crawl prioritization
 * Company comparison engine
-* PDF export reports
 * Real-time crawl visualization
 * Industry benchmarking
 * Risk scoring
