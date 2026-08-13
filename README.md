@@ -262,30 +262,30 @@ sequenceDiagram
 
 ## Homepage
 
-<img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/a815bee0-42f0-46a7-8bd1-20f4476a640a" />
+<img width="1919" height="1019" alt="image" src="https://github.com/user-attachments/assets/00a0124a-0e70-45b1-84be-f43092d5f093" />
 
 
 ---
 
 ## Live Analysis
 
-<img width="1917" height="1011" alt="image" src="https://github.com/user-attachments/assets/015d08af-fe4b-4e0a-9312-e7f282d665b1" />
-<img width="1917" height="1016" alt="image" src="https://github.com/user-attachments/assets/6980331f-a60a-4344-9c0b-035d0f9329cd" />
+<img width="1919" height="1016" alt="image" src="https://github.com/user-attachments/assets/af1d89ac-fec7-4d9d-bbf2-d0997c3decfc" />
+
 
 
 ---
 
 ## Results
 
-<img width="1917" height="1015" alt="image" src="https://github.com/user-attachments/assets/c373925b-6bac-46f4-8b4a-a3bd90d8f148" />
-<img width="1917" height="1010" alt="image" src="https://github.com/user-attachments/assets/2a90ae3b-7453-4294-94c7-4ff0af334936" />
+<img width="1919" height="1020" alt="image" src="https://github.com/user-attachments/assets/17e12458-cd5f-4966-9366-a28808b737db" />
+
 
 
 
 ---
 ## Evidence Breakdown
 
-<img width="1917" height="1020" alt="image" src="https://github.com/user-attachments/assets/20b6fe3e-36d8-485a-b0e1-375603916e3f" />
+<img width="1919" height="1018" alt="image" src="https://github.com/user-attachments/assets/2ca05d66-9aa4-442c-a803-202d90e57426" />
 
 
 
