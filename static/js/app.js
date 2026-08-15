@@ -57,11 +57,11 @@ function generatePDF(result) {
 
     // ---- Color Palette ----
     const colors = {
-        headerBg: [30, 27, 75],
-        headerAccent: [139, 92, 246],
-        sectionBg: [245, 243, 255],
-        primary: [99, 102, 241],
-        accent: [139, 92, 246],
+        headerBg: [15, 17, 20],
+        headerAccent: [91, 138, 240],
+        sectionBg: [240, 243, 250],
+        primary: [91, 138, 240],
+        accent: [91, 138, 240],
         success: [16, 185, 129],
         danger: [239, 68, 68],
         warning: [245, 158, 11],
@@ -629,7 +629,6 @@ function renderReport(result) {
 
             <!-- EXECUTIVE SUMMARY -->
             <div class="summary-card executive-summary-card">
-                <div class="executive-sparkle"></div>
                 <h4>Executive AI Summary</h4>
                 <p>${result.summary}</p>
             </div>
@@ -884,22 +883,11 @@ async function checkStatus() {
 // HISTORICAL DB LOADER
 // --------------------------------
 async function loadCachedReport(companyId) {
-    const statusBox = document.getElementById("status-box");
-    
-    // Render dynamic fake loaders to make it feel smooth
-    if (statusBox) {
-        statusBox.style.display = "block";
-        document.getElementById("progress-step").innerText = "Loading cached intelligence report...";
-        document.getElementById("progress-bar").style.width = "100%";
-        document.getElementById("progress-percent").innerText = "100%";
-    }
-
     try {
         const response = await fetch(`/company/${companyId}/`);
         const data = await response.json();
 
         if (data.status === "completed") {
-            if (statusBox) statusBox.style.display = "none";
             renderReport(data.result);
             window.scrollTo({
                 top: document.getElementById("live-result").offsetTop - 30,
@@ -908,7 +896,6 @@ async function loadCachedReport(companyId) {
         }
     } catch (e) {
         console.error("Failed to load cached report:", e);
-        if (statusBox) statusBox.style.display = "none";
     }
 }
 

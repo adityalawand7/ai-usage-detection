@@ -1,22 +1,20 @@
 {% load static %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Detect and classify how organizations use AI across their products, operations, and infrastructure.">
     <title>AI Usage Detection Engine</title>
-    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=1.3">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}?v=2.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-
-<div class="grid-bg"></div>
 
 <div class="container">
 
     <!-- HERO SECTION -->
     <header class="hero">
-        <div class="glowing-orb"></div>
         <h1>AI Usage <span>Detection Engine</span></h1>
         <p>
             An intelligent web profiling platform that extracts and classifies how organizations adopt Artificial Intelligence across their products, operations, infrastructure, and public-facing profiles.
@@ -69,8 +67,7 @@
     {% if task_id or cached_company_id %}
     <div class="status-box" id="status-box">
         <div class="loader-header">
-            <h3>Intelligence Pipeline Running</h3>
-            <div class="pulse-ring"></div>
+            <h3>Analysis in progress</h3>
         </div>
         <p class="task-id">
             Target URL: <span id="scanning-url">{% if scanning_url %}{{ scanning_url }}{% else %}Analyzing...{% endif %}</span>
@@ -85,27 +82,27 @@
         <ul class="pipeline-checklist" id="pipeline-checklist">
             <li class="checklist-item pending" id="step-init">
                 <span class="status-icon"></span>
-                <span class="checklist-label">Initialize Engine & Sandbox</span>
+                <span class="checklist-label">Initializing</span>
             </li>
             <li class="checklist-item pending" id="step-crawl">
                 <span class="status-icon"></span>
-                <span class="checklist-label">Crawl Corporate & Career Pages</span>
+                <span class="checklist-label">Crawling pages</span>
             </li>
             <li class="checklist-item pending" id="step-extract">
                 <span class="status-icon"></span>
-                <span class="checklist-label">Extract & Structure DOM Elements</span>
+                <span class="checklist-label">Extracting content</span>
             </li>
             <li class="checklist-item pending" id="step-semantic">
                 <span class="status-icon"></span>
-                <span class="checklist-label">AI Semantic Evidence Scoring</span>
+                <span class="checklist-label">Scoring evidence</span>
             </li>
             <li class="checklist-item pending" id="step-fingerprint">
                 <span class="status-icon"></span>
-                <span class="checklist-label">Fingerprint Infrastructure & SDKs</span>
+                <span class="checklist-label">Detecting integrations</span>
             </li>
             <li class="checklist-item pending" id="step-report">
                 <span class="status-icon"></span>
-                <span class="checklist-label">Compile Final Intelligence Report</span>
+                <span class="checklist-label">Generating report</span>
             </li>
         </ul>
         <div class="progress-footer">
@@ -128,7 +125,6 @@
         <div class="history-grid">
             {% for company in history %}
             <article class="history-card" onclick="loadCachedReport({{ company.id }})">
-                <div class="history-card-glow"></div>
                 <div class="card-top">
                     <span class="history-url">{{ company.website }}</span>
                     <span class="status-badge {% if company.verdict %}active-ai{% else %}inactive-ai{% endif %}">
@@ -153,7 +149,7 @@
 </script>
 <script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
-<script src="{% static 'js/app.js' %}?v=1.4"></script>
+<script src="{% static 'js/app.js' %}?v=2.0"></script>
 
 </body>
 </html>
